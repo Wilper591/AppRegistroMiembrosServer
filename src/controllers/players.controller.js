@@ -39,9 +39,10 @@ const obtenerPlayers = async (req, res) => {
       });
       console.log({
         status: "Success",
+        is_Active: true,
         message: "Players encontradas con exito",
         code: 200,
-        result: players,
+        result: formattedPlayers,
       });
       res.status(200).send({
         status: "Success",
@@ -167,4 +168,127 @@ const crearPlayer = async (req, res) => {
   }
 };
 
-module.exports = { obtenerPlayers, obtenerPlayerByName, crearPlayer };
+const editarInfoPlayer = async (req, res) => {
+  try {
+    const { id, nombre, role_id, arma1_id, arma2_id } = req.body;
+    const player = await Player.findByPk(id);
+    if (!player) {
+      res.status(404).json({ msg: "Player no encontrado" });
+    }
+
+    const transaction = await db.transaction();
+
+    const editPlayerInfo = await Player.update(
+      {
+        nombre: nombre || player.nombre,
+        role_id: role_id || player.role_id,
+        arma1_id: arma1_id || player.arma1_id,
+        arma2_id: arma2_id || player.arma2_id,
+      },
+      { where: { id } }
+    );
+
+    if (!editPlayerInfo) {
+      /* Error */
+      /* ROLLBACK */
+      await transaction.rollback();
+      res.status(204).json({
+        status: "Error",
+        message: "No se pudo editar la información del player",
+        code: 500,
+      });
+    } else {
+      /* Finaliza transcción */
+      await transaction.commit();
+      /* Success */
+      const editedPlayerInfo = await Player.findOne({
+        where: { id },
+        attributes: {
+          exclude: ["puntajePvP", "puntajePvE"],
+        },
+      });
+      res.status(200).json({
+        status: "Success",
+        message: "Información editada Éxitosamente",
+        code: 200,
+        editedPlayerInfo,
+      });
+    }
+  } catch (error) {
+    console.log({
+      status: "Error",
+      message: error.message,
+      mensajeDelProgramador: "Error al intentar editar información.",
+    });
+    res.status(500).json({
+      status: "Error",
+      message: error.message,
+      mensajeDelProgramador: "Error al intentar editar información.",
+    });
+  }
+};
+
+const actualizarPuntajePlayer = async (req, res) => {
+  try {
+    const { id, puntajePvE, puntajePvP } = req.body;
+    const player = await Player.findByPk(id);
+    if (!player) {
+      res.status(404).json({ msg: "Player no encontrado" });
+    }
+    const transaction = await db.transaction();
+
+    const editPlayerPuntaje = await Player.update(
+      {
+        puntajePvE: puntajePvE || player.puntajePvE,
+        puntajePvP: puntajePvP || player.puntajePvP,
+      },
+      { where: { id } }
+    );
+
+    if (!editPlayerPuntaje) {
+      /* Error */
+      /* ROLLBACK */
+      await transaction.rollback();
+      res.status(204).json({
+        status: "Error",
+        message: "No se pudo editar el putanje del player",
+        code: 500,
+      });
+    } else {
+      /* Finaliza transcción */
+      await transaction.commit();
+      /* Success */
+      const editedPlayerPuntaje = await Player.findOne({
+        where: { id },
+        attributes: {
+          exclude: ["nombre", "role_id", "arma1_id", "arma2_id"],
+        },
+      });
+      res.status(200).json({
+        status: "Success",
+        message: "Puntaje editado Éxitosamente",
+        code: 200,
+        editedPlayerPuntaje,
+      });
+    }
+  } catch (error) {
+    console.log({
+      status: "Error",
+      message: error.message,
+      mensajeDelProgramador: "Edición de puntaje de player fallida.",
+    });
+    res.status(500).json({
+      status: "Error",
+      message: error.message,
+      mensajeDelProgramador: "Edición de puntaje de player fallida.",
+    });
+  }
+};
+
+module.exports = {
+  obtenerPlayers,
+  obtenerPlayerByName,
+  crearPlayer,
+  editarInfoPlayer,
+  actualizarPuntajePlayer,
+};
